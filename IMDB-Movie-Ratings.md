@@ -69,19 +69,20 @@ append_vector <- function(vector, inserted_indices, values){
 
 
 #Runtime
+wp_content_genre<-append_vector(wp_content_genre, c(43), NA)
 wp_content_run<-append_vector(wp_content_run, c(5,7,9,13,13,13,13,18,18,21,23,
                                 23,23,23,23,23,23,23,23,23,23,
-                                23,23,23,23,23,23,23,23,23), NA)
+                                23,23,23,23,23,23,23,23,23,23), NA)
 
 wp_content_genre<-append_vector(wp_content_genre, c(23), NA)
 wp_content_rating<-append_vector(wp_content_rating, c(19,21,21,21,
                                                       25,25,25,25,25,25,25,25,
                                                       25,25,25,25,25,25,25,25,
-                                                      25,25), NA)
+                                                      25,25,25), NA)
 wp_content_vote<-append_vector(wp_content_vote, c(19,21,21,21,
                                                       25,25,25,25,25,25,25,25,
                                                       25,25,25,25,25,25,25,25,
-                                                      25,25), NA)
+                                                      25,25,25), NA)
 ```
 
 ``` r
@@ -92,12 +93,9 @@ movie_df <- tibble("title" = wp_content_titles,
                    "rating" = floor(wp_content_rating),
                    "vote" = wp_content_vote)
 
-
 ggplot(data = movie_df,
        aes(x = rating, y = vote, group = rating)) +
   geom_boxplot()
 ```
-
-    ## Warning: Removed 22 rows containing missing values (stat_boxplot).
 
 ![](IMDB-Movie-Ratings_files/figure-gfm/combine-1.png)<!-- -->
