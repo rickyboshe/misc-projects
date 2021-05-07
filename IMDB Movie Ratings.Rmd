@@ -6,60 +6,71 @@ output:
   github_document: default
   rmarkdown::github_document: default
 ---
-Looking at IMDB data on how users rate and score movies this project looks at the correlation between movie ratings and user votes. We shall extract data for the top 30 movies scored between March and July 2020.
+Most of us love watching movies, good movies that align to our tastes and at times, well-rated ones. We can either allow streaming platforms to recommend us movies, see trailers and get interested in upcoming movies or like most of us, go through rating sites like [IMDB](https://www.imdb.com/?ref_=nv_home) or [Fandango](https://www.fandango.com/). 
 
-```{r setup, include=FALSE}
-#Load packages
+The problem is, not all rating sites rate movies the same and we do not know how sites score movies. We would like to rely on sites that are fair, transparent and consistent in how they rate movies. As an analyst, looking at rating data, exploring and visualizing it, helps provide valuable insights. 
+
+
+This project looks into two key areas when it comes to analyzing movie rating data:
+1.  How do we gain access to movie rating data? **Goal:** Extract, clean and explore movie rating data. 
+2.  How do we analyze a site's transparency and consistency in rating movies? **Goal:** Explore movie ratings and visualize annual ratings. 
+
+### Movie ratings: Sourcing Data
+Most movie rating websites contain a multitude of data from images, to texts to numbers (e.g. scores, year of release etc). I shall use web scarping techniques to extract details of the ["Best British TV 2021"](https://www.imdb.com/list/ls086566770/). I love British tv shows so i will attempt to extract their *titles*, *year*, *run-time*, *genre*, *number of votes* and *rating*. 
+
+
+This example contains some missing values, just like most data we come across in the world, so it will serve as a good example on how to first scrap the web, the clean the data and eventually manipulate it to deal with missing values.
+
+```{r setup, include=TRUE, warning=FALSE, message=FALSE}
+#Load require packages. Important "rvest" for web scraping.
 library(tidyverse)
 library(rvest)
 library(httr)
 library(ggplot2)
+library(gridExtra)
 ```
 
 
-```{r data, include=TRUE}
-#scrap webpage
-wp_content<-read_html("https://www.imdb.com/list/ls086566770/")
+When web scraping, it is always important to be able to identify the path/CSS selectors of the object e.g. image, you want to capture. Some people prefer to use the "Inspect Webpage" option when you right click on a webpage. Another cool tool, that i prefer to use, is the chrome extension, [SelectorGadget](https://chrome.google.com/webstore/detail/selectorgadget/mhjhnkcfbdhnjickkkdbjoemdmbfginb?hl=en).
+```{r clean, include=TRUE, warning=FALSE, message=FALSE}
+#Scrap the webpage and clean respective fields.
+wp_content_titles<-read_html("C:/Users/ricky/Documents/GitHub/misc-projects/Best British TV 2021 - IMDb.html")%>%
+  html_nodes(".sub-list h3 a")%>% #This is the selector to show titles
+  html_text() #this specifies the output, "text", i am seeking
 
-```
-
-
-```{r clean, include=TRUE}
-#clean scrapped data
-wp_content_titles<-read_html("https://www.imdb.com/list/ls086566770/")%>%
-  html_nodes(".sub-list h3 a")%>%
-  html_text()
-
-wp_content_year<-read_html("https://www.imdb.com/list/ls086566770/")%>%
+wp_content_year<-read_html("C:/Users/ricky/Documents/GitHub/misc-projects/Best British TV 2021 - IMDb.html")%>%
   html_nodes(".sub-list h3 span:nth-child(3)")%>%
   html_text()
-wp_content_year<-parse_number(wp_content_year)
+wp_content_year<-parse_number(wp_content_year) #This changes the date strings to numerical
 
-wp_content_run<-read_html("https://www.imdb.com/list/ls086566770/")%>%
+wp_content_run<-read_html("C:/Users/ricky/Documents/GitHub/misc-projects/Best British TV 2021 - IMDb.html")%>%
   html_nodes(".sub-list .runtime")%>%
   html_text()
-wp_content_run<-parse_number(wp_content_run)
+wp_content_run<-parse_number(wp_content_run) #This changes the runtime strings to numerical
 
-wp_content_genre<-read_html("https://www.imdb.com/list/ls086566770/")%>%
+wp_content_genre<-read_html("C:/Users/ricky/Documents/GitHub/misc-projects/Best British TV 2021 - IMDb.html")%>%
   html_nodes(".sub-list .genre")%>%
   html_text()
-wp_content_genre<-str_trim(wp_content_genre)
+wp_content_genre<-str_trim(wp_content_genre) #String function to trim the whitespace off 
 
-wp_content_rating<-read_html("https://www.imdb.com/list/ls086566770/")%>%
+wp_content_rating<-read_html("C:/Users/ricky/Documents/GitHub/misc-projects/Best British TV 2021 - IMDb.html")%>%
   html_nodes(".sub-list .small:nth-child(1)")%>%
   html_text()
 wp_content_rating<-parse_number(wp_content_rating)
 
-wp_content_vote<-read_html("https://www.imdb.com/list/ls086566770/")%>%
+wp_content_vote<-read_html("C:/Users/ricky/Documents/GitHub/misc-projects/Best British TV 2021 - IMDb.html")%>%
   html_nodes(".sub-list p:nth-child(6) span:nth-child(2)")%>%
   html_text()
 wp_content_vote<-parse_number(wp_content_vote)
 
 ```
+**Note:** As the actual page gets update regularly, i have saved an offline version so as to be able to reproduce the results anytime. 
 
+
+Some of the dataframes have missing values at different positions/indexes. I wrote a function that helps introduce "NA" values in indexes that are missing data. At the end, i want to have dataframes of the same row length. 
 
 ```{r manipulate, include=TRUE}
-#Introduce NAs to missing values
+#Some of the data would Introduce NAs to missing values
 append_vector <- function(vector, inserted_indices, values){
 
   ## Creating the current indices of the vector
@@ -81,18 +92,19 @@ append_vector <- function(vector, inserted_indices, values){
   new_vector[ordered_indices]
 }
 
+#This function works with indexing the nth-1 position. 
+#e.g. If a value is missing for the 24th and 44th shows, i specify position 23 and 43
+wp_content_genre<-append_vector(wp_content_genre, c(23, 43), NA)
 
-#Runtime
-wp_content_genre<-append_vector(wp_content_genre, c(43), NA)
 wp_content_run<-append_vector(wp_content_run, c(5,7,9,13,13,13,13,18,18,21,23,
                                 23,23,23,23,23,23,23,23,23,23,
                                 23,23,23,23,23,23,23,23,23,23), NA)
 
-wp_content_genre<-append_vector(wp_content_genre, c(23), NA)
 wp_content_rating<-append_vector(wp_content_rating, c(19,21,21,21,
                                                       25,25,25,25,25,25,25,25,
                                                       25,25,25,25,25,25,25,25,
                                                       25,25,25), NA)
+
 wp_content_vote<-append_vector(wp_content_vote, c(19,21,21,21,
                                                       25,25,25,25,25,25,25,25,
                                                       25,25,25,25,25,25,25,25,
@@ -100,9 +112,10 @@ wp_content_vote<-append_vector(wp_content_vote, c(19,21,21,21,
 
 ```
 
+After having tibbles of equal row length, we can create a combined dataframe. This will allow us to analyze the data in any way we prefer.
 
-
-```{r combine, include=TRUE, warning=FALSE}
+For example, let us examine how tv show ratings varied with the number or votes with the help of boxplots.
+```{r combine, include=TRUE, warning=FALSE, message=TRUE, fig.align='center', fig.width=9}
 movie_df <- tibble("title" = wp_content_titles, 
                    "year" = wp_content_year, 
                    "runtime" = wp_content_run, 
@@ -110,7 +123,27 @@ movie_df <- tibble("title" = wp_content_titles,
                    "rating" = floor(wp_content_rating),
                    "vote" = wp_content_vote)
 
-ggplot(data = movie_df,
-       aes(x = rating, y = vote, group = rating)) +
-  geom_boxplot()
+p1<-ggplot(data = movie_df,
+       aes(x = rating, y=vote, group=rating)) +
+  geom_boxplot()+
+  theme_bw()+
+  labs(title="IMDB Top 45 British TV shows 2021 Ratings",
+       y="No. of Votes",
+       x="Rating")+
+  theme(plot.title = element_text(size = 12, hjust = 0.5))
+
+
+p2<-ggplot(data = movie_df,
+       aes(x = rating, color="red")) +
+  geom_density()+
+  guides(color=FALSE)+
+  theme_bw()+
+  labs(title="IMDB Top 45 British TV shows 2021 Ratings (density)",
+       y="Density",
+       x="Rating")+
+  theme(plot.title = element_text(size = 12, hjust = 0.5))
+
+grid.arrange(p2, p1, ncol = 2, nrow = 1)
+
 ```
+We can see that most of the TV shows are rated between 6 and 8, with 7 having the most rating within this IMDB dataframe. You can obviously analyze way more now that you have the data on hand. 
