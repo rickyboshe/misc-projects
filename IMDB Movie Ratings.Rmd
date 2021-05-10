@@ -15,7 +15,7 @@ This project looks into two key areas when it comes to analyzing movie rating da
 1.  How do we gain access to movie rating data? **Goal:** Extract, clean and explore movie rating data. 
 2.  How do we analyze a site's transparency and consistency in rating movies? **Goal:** Explore movie ratings and visualize annual ratings. 
 
-### Movie ratings: Sourcing Data
+## Movie ratings: Sourcing Data
 Most movie rating websites contain a multitude of data from images, to texts to numbers (e.g. scores, year of release etc). I shall use web scarping techniques to extract details of the ["Best British TV 2021"](https://www.imdb.com/list/ls086566770/). I love British tv shows so i will attempt to extract their *titles*, *year*, *run-time*, *genre*, *number of votes* and *rating*. 
 
 
@@ -123,7 +123,7 @@ movie_df <- tibble("title" = wp_content_titles,
                    "rating" = floor(wp_content_rating),
                    "vote" = wp_content_vote)
 
-p1<-ggplot(data = movie_df,
+plot1<-ggplot(data = movie_df,
        aes(x = rating, y=vote, group=rating)) +
   geom_boxplot()+
   theme_bw()+
@@ -133,7 +133,7 @@ p1<-ggplot(data = movie_df,
   theme(plot.title = element_text(size = 12, hjust = 0.5))
 
 
-p2<-ggplot(data = movie_df,
+plot2<-ggplot(data = movie_df,
        aes(x = rating, color="red")) +
   geom_density()+
   guides(color=FALSE)+
@@ -143,7 +143,170 @@ p2<-ggplot(data = movie_df,
        x="Rating")+
   theme(plot.title = element_text(size = 12, hjust = 0.5))
 
-grid.arrange(p2, p1, ncol = 2, nrow = 1)
+grid.arrange(plot2, plot1, ncol = 2, nrow = 1)
 
 ```
 We can see that most of the TV shows are rated between 6 and 8, with 7 having the most rating within this IMDB dataframe. You can obviously analyze way more now that you have the data on hand. 
+
+## Movie ratings: Analyzing Data
+Now you might be interested to know if the movie rating site has always been fair, transparent and consistent in its ratings. This is especially true after one of the most prominent rating sites, Fandango, was found in 2015 to bloating its movie ratings to help boost movie ticket sales. 
+
+
+In 2015, Walt Hickey analyzed movie ratings displayed on the fandango website and found them to be considerably exaggerated as compared to actual fun votes that was scripted on the HTML code. You can read his article at the  [FiveThirtyEight](https://fivethirtyeight.com/features/fandango-movies-ratings/) website. 
+
+
+To analyze movie rating consistency we require data from two snapshot periods so as to run a comparison. Thankfully, Walt made his data public on his [Github](https://github.com/fivethirtyeight/data/tree/master/fandango) (2015) while another Github user, Mircel, shared [data](https://github.com/mircealex/Movie_ratings_2016_17) post the analysis (2016-2017). 
+
+```{r fandango, include=FALSE}
+#Load libraries
+library(ggplot2)
+library(tidyverse)
+library(GGally)
+
+pre<-read_csv("C:/Users/ricky/OneDrive/Desktop/School/R/DataQuest/Statistics with R/Guided project/fandango_score_comparison.csv")
+post<-read_csv("C:/Users/ricky/OneDrive/Desktop/School/R/DataQuest/Statistics with R/Guided project/movie_ratings_16_17.csv")
+```
+
+
+```{r import, include=T}
+#Load data from your working directory
+#Select fandango variables only
+pre_fandago<-pre%>%
+  select(1,7,8, 21, 22)
+
+post_fandago<-post%>%
+  select(1,2,7)
+
+```
+
+
+The data sets contain movies from several years. We are interested in movies in two time periods. Movies released and rated in the year 2015 and those that were released and rated in 2016. 
+
+```{r clean2, include=TRUE}
+#generate year column from film column
+pre_fandago<-pre_fandago%>%
+  separate(FILM,
+           into=c("Film", "Year"),
+           sep="\\(")
+pre_fandago$Year<-parse_number(pre_fandago$Year)
+
+#remain with only movies released in 2015 for pre dataset
+pre_fandago<-pre_fandago%>%
+  filter(Year==2015)
+
+#remain with only 2016 movies in post dataset
+post_fandago<-post_fandago%>%
+  filter(year==2016)
+
+```
+
+
+#### Analysis
+
+```{r analysis2, include=TRUE, fig.align='center'}
+#Plot 2015
+plot3<-pre_fandago%>%
+  ggplot()+
+  geom_density(aes(x=Fandango_Stars, fill="red", alpha=0.5))+
+  geom_density(aes(x=Fandango_Ratingvalue, fill="blue", alpha=0.5))+
+  guides(alpha=FALSE)+
+  theme_bw()+
+  scale_x_continuous(name="Fandango ratings", limits = c(0,5))+
+  scale_y_continuous(name="Density", limits = c(0.0,1.0))+
+  scale_fill_discrete(name = "", labels = c("Actual ratings", 
+                                            "Displayed ratings"))+
+  labs(title = "Difference in Fandango movie \nratings (2015)")+
+  theme(plot.title = element_text(hjust=0.5, size = 12, face="bold"),
+        legend.key.size = unit(1.5, 'lines'))
+plot3
+
+#Compare displayed ratings 2015vs 2016
+plot4<-ggplot(data = pre_fandago, 
+       aes(x = Fandango_Stars, fill="Red", alpha=0.5)) +
+  geom_density() +
+  geom_density(data = post_fandago, 
+               aes(x = fandango, fill= "blue", alpha=0.5)) +
+  guides(alpha=FALSE)+
+  theme_bw()+
+  labs(title = "Comparison of Fandango ratings \n(2015 vs 2016)",
+       x = "Rating",
+       y = "Density") +
+  scale_x_continuous(breaks = seq(0, 5, by = 0.5), 
+                     limits = c(0,5))+
+   scale_fill_discrete(name = "", labels = c("2016 ratings",
+                                             "2015 ratings"))+
+  theme(plot.title = element_text(hjust=0.5, size = 12, face="bold"),
+        legend.key.size = unit(1.5, 'lines'))
+plot4
+          
+
+```
+
+
+It is clear that in 2015 Fandango were over-bloating their ratings. Actual ratings were lower than the ratings displayed on their website. After being called out and questioned, they attributed it to a bug and promised to sort it out.
+
+Comparing the displayed ratings for 2016 movies vs 2015 movies, it seems that the 2016 displayed ratings have subsided. This shows there could have been a tweak and current ratings might reflect actual ratings.
+
+```{r}
+pre_fandago %>% 
+  group_by(Fandango_Stars) %>% 
+  summarize(Percentage = n() / nrow(pre_fandago) * 100)
+```
+
+```{r}
+post_fandago %>% 
+  group_by(fandango) %>% 
+  summarize(Percentage = n() / nrow(post_fandago) * 100)
+```
+
+The Percentage of movies that displayed 4.5 and 5.0 stars really went down in 2016 as compared to 2015. Further proving the shift lower in ratings. 
+
+You can do a similar analysis on any movie rating website of your choice, sourcing data via web scraping. 
+
+
+## Movie ratings: Comparing Data
+Maybe the movie rating site you have been using turns out to be inconsistent and dodgy. You might want to check out other movie rating sites, but are they and different to the old site you used?
+
+
+Comparing several prominent movie rating sites might help you see how they compare alongside each other. Eventually you might like a site with more conservative ratings or maybe a site with higher ratings.
+
+```{r import3, include=FALSE}
+movie<-read_csv("IMDB-Movie-Ratings_files/movie_reviews.csv")
+head(movie, 5)
+
+```
+
+
+```{r analyze3, include=TRUE, warning=FALSE, message=FALSE, fig.align='center'}
+head(movie, 5)
+
+#Plot all sites on the same plot to see spread of rating across sites
+plot4<-movie%>%
+  ggplot(aes(x=Rating, fill=Rating_Site))+
+  geom_histogram(bins=30)+
+  theme_bw()+
+  labs(title = "Movie ratings by Website (2015)",
+       x= "Rating",
+       y="No. of Movies")+
+  theme(plot.title = element_text(size = 12, hjust = 0.5, face = "bold"))
+
+plot4
+
+plot5<-movie%>%ggplot(aes(x=Rating, fill=Rating_Site, color=Rating_Site))+
+  geom_density(alpha=0.2)+
+  theme_bw()+
+  labs(title = "Movie ratings by Website (2015)",
+       x= "Rating",
+       y="density")+
+  theme(plot.title = element_text(size = 12, hjust = 0.5, face = "bold"))
+
+plot5
+
+```
+
+From this snapshot of 2015 movies, it is clear that Rotten Tomatoes has rating that are very spread out while fandango gives out the highest ratings for movies. Movie rating sites that are to the left of Fandango's density curve, have lower ratings (more reserved).
+
+
+## Conclusion
+This project combines data sourcing techniques i.e. web scraping, data cleaning and visualization to bring insights into movie rating websites. Websites are a treasure chest of data and one can pick up and extract interesting data!
+
