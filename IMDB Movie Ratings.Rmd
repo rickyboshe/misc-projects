@@ -6,7 +6,7 @@ output:
   github_document: default
   rmarkdown::github_document: default
 ---
-Most of us love watching movies, good movies that align to our tastes and at times, well-rated ones. We can either allow streaming platforms to recommend us movies, see trailers and get interested in upcoming movies or like most of us, go through rating sites like [IMDB](https://www.imdb.com/?ref_=nv_home) or [Fandango](https://www.fandango.com/). 
+Most of us love watching good movies that align to our tastes and at times, well-rated ones. We can either allow streaming platforms to recommend us movies, see trailers and get interested in upcoming movies or like most of us, go through rating sites like [IMDB](https://www.imdb.com/?ref_=nv_home) or [Fandango](https://www.fandango.com/). 
 
 The problem is, not all rating sites rate movies the same and we do not know how sites score movies. We would like to rely on sites that are fair, transparent and consistent in how they rate movies. As an analyst, looking at rating data, exploring and visualizing it, helps provide valuable insights. 
 

@@ -15,7 +15,7 @@ and *after* his analysis. Thankfully, Walt made his data public on his
 [Github](https://github.com/fivethirtyeight/data/tree/master/fandango)
 (2015) while another Github user, Mircel, shared
 [data](https://github.com/mircealex/Movie_ratings_2016_17) post the
-analysis (2016-2017.
+analysis (2016-2017).
 
 ## Import and examine data
 

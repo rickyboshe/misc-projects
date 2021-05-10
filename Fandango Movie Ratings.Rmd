@@ -10,7 +10,7 @@ Branching off one of the famous movie rating analysis that was done on Fandango 
 This is a visualization project employing different frequency visualization charts. 
 
 This project will use two sets of data, *before* Walt Hickey's analysis and *after* his analysis.
-Thankfully, Walt made his data public on his [Github](https://github.com/fivethirtyeight/data/tree/master/fandango) (2015) while another Github user, Mircel, shared [data](https://github.com/mircealex/Movie_ratings_2016_17) post the analysis (2016-2017. 
+Thankfully, Walt made his data public on his [Github](https://github.com/fivethirtyeight/data/tree/master/fandango) (2015) while another Github user, Mircel, shared [data](https://github.com/mircealex/Movie_ratings_2016_17) post the analysis (2016-2017). 
 
 ```{r setup, include=FALSE}
 #Load libraries
