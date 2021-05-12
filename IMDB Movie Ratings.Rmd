@@ -308,5 +308,5 @@ From this snapshot of 2015 movies, it is clear that Rotten Tomatoes has rating t
 
 
 ## Conclusion
-This project combines data sourcing techniques i.e. web scraping, data cleaning and visualization to bring insights into movie rating websites. Websites are a treasure chest of data and one can pick up and extract interesting data!
+This project combines data sourcing techniques i.e. web scraping, data cleaning and visualization to bring insights into movie rating websites. Websites are a treasure chest of data and one can pick up and extract interesting data! Maybe next time i shll do one for **anime**
 
