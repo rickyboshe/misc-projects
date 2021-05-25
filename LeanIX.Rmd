@@ -1,0 +1,353 @@
+---
+title: "LeanIX"
+author: "Fredrick Boshe"
+date: "25/05/2021"
+output: 
+  github_document: default
+  rmarkdown::github_document: default
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(patchwork)
+library(caret)
+library(vcd)
+library(gridExtra)
+library(knitr)
+library(corrplot)
+library(scales)
+library(lme4)
+library(smotefamily)
+library(InformationValue)
+library(ROCR)
+library(rpart)
+library(randomForest)
+library(xgboost)
+library(MASS)
+library(ggmosaic)
+library(e1071)
+library(ranger)
+library(penalized)
+library(rpart.plot)
+library(ggcorrplot)
+library(caTools)
+library(doParallel)
+library(readxl)
+library(DataExplorer)
+library(oddsratio)
+library(partykit)
+registerDoParallel(cores=4)
+
+churn<-read_excel("C:/Users/ricky/Documents/Datasets/LeanIX/LeanIX_CS-Ops-Case_Dataset.xlsx")
+
+```
+
+
+
+```{r clean, include=TRUE}
+#Normalize column names
+colnames(churn)<-str_to_lower(colnames(churn))%>%
+  str_replace_all("\\s", "_")%>%
+  str_to_title(colnames(churn))
+
+#Change discrete columns to factors
+churn<-churn%>%
+  mutate(Status=as.factor(Status),
+         Csm_approach=as.factor(Csm_approach))
+
+churn$Arr<-parse_number(churn$Arr)
+churn$Company_name<-NULL
+
+# Check NA
+sapply(churn, function(x) sum(is.na(x)))
+
+#remove NAs
+churn <- churn[complete.cases(churn), ]
+
+```
+Most significant data cleaning was removing missing data values, 6 of them, which occured in the NPS column. This shrunk the dataset by 30%. This is significant for such a samll sample size. I also converted the **ARR** values to euros, to improve consistency (Multiplied USD values by 0.8).
+
+```{r dataExplore, include=TRUE, fig.align='center', fig.width=8}
+summary(churn)
+
+p1<-ggplot(churn, aes(Status, fill = Status)) +
+  geom_bar() +
+  theme_bw()+
+  theme(legend.position = 'none')
+round(prop.table(table(churn$Status)),3)
+
+#Continous variable explore
+p2<-churn %>%
+  keep(is.numeric) %>%
+  gather() %>%
+  ggplot() +
+  geom_histogram(aes(x=value,fill=key), color="black", bins = 15) +
+  facet_wrap(~ key, scales = "free") +
+  theme_minimal() +
+  theme(legend.position = 'none')
+table(churn$Latest_nps)
+
+```
+Almost even split between churned and active customers, with 57% of the customers still being active and the rest churned. Smallest customer has 500 employees with the largest having 45,000 employees. The highest annual recurring revenue (**ARR**) is 147,643 Euros while the lowest is 21,120 Euros.
+
+Annually, most customers bring in a recurring revenue below 100,000 Euros. With most customers seeing less that 50 active users. Coincidentally, an NPS value of 9 (followed by 10) was the most frequent response, meaning most companies are loyal and highly committed to the company (LeanIX). If 78.5% of the customers are Net Promoters, then why is there a churn rate of 43%? 
+
+My hypothesis is that NPS do not significantly predict likelihood of customers churning. (Null hypothesis is that NPS does significantly predict likelihood of customer churning)
+
+```{r feature, include=TRUE, fig.align='center', fig.width=8}
+#feature selection
+numChurn <- names(which(sapply(churn, is.numeric)))
+corr <- cor(churn[,numChurn], use = 'pairwise.complete.obs')
+p3<-ggcorrplot(corr, lab = TRUE)
+
+#categorical variable distribution
+p4<-churn %>%
+  dplyr::select(-Status) %>% 
+  keep(is.factor) %>%
+  gather() %>%
+  group_by(key, value) %>% 
+  summarize(n = n()) %>% 
+  ggplot() +
+  geom_bar(mapping=aes(x = value, y = n, fill=key), color="black", stat='identity') + 
+  coord_flip() +
+  facet_wrap(~ key, scales = "free") +
+  theme_bw() +
+  theme(legend.position = 'none')
+round(prop.table(table(churn$Csm_approach)),3)
+
+summary(churn$Arr)
+
+#Continuous variable exploration
+#Arr
+p5 <- ggplot(churn, aes(x = Arr, fill = Status)) +
+  geom_histogram(binwidth=20000) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(20000,150000,by=30000), labels = comma)
+
+p6 <- ggplot(churn, aes(x = Status, y = Arr, fill = Status)) +
+  geom_boxplot() + 
+  theme_minimal() +
+  theme(legend.position = 'none')
+
+p5 | p6
+
+table(churn$Latest_nps, churn$Status)
+summary(churn$`Max_report_views_/_Month`)
+
+#No of employees
+p7 <- ggplot(churn, aes(x = Number_of_employees, fill = Status)) +
+  geom_histogram(binwidth=5000) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(500,50000,by=9500), labels = comma)
+
+p8 <- ggplot(churn, aes(x = Status, y = Number_of_employees, fill = Status)) +
+  geom_boxplot() + 
+  theme_minimal() +
+  theme(legend.position = 'none')
+
+p7 | p8
+
+#No of active
+p9 <- ggplot(churn, aes(x = `Average_active_users_/_Month`, fill = Status)) +
+  geom_histogram(binwidth=10) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(0,300,by=50), labels = comma)
+
+p10 <- ggplot(churn, aes(x = Status, y = `Average_active_users_/_Month`, fill = Status)) +
+  geom_boxplot() + 
+  theme_minimal() +
+  theme(legend.position = 'none')
+
+p9 | p10
+
+#No of active
+p11 <- ggplot(churn, aes(x = `Max_report_views_/_Month`, fill = Status)) +
+  geom_histogram(binwidth=10) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(0,350,by=50), labels = comma)
+
+p12 <- ggplot(churn, aes(x = Status, y = `Max_report_views_/_Month`, fill = Status)) +
+  geom_boxplot() + 
+  theme_minimal() +
+  theme(legend.position = 'none')
+
+p11 | p12
+
+```
+An analysis of the numeric variables show a weak correlation between them, allowing us to use all variables in our analysis. Most customers are on a "Tech Touch" CSM approach level (50%).
+
+
+Active customers are those with an ARR around 50-60,000 Euros. Over 50% of the churned customers have an ARR below 50,000 Euros. These might be the customers that need addressing. Of the active customers, 75% of them have 10,000 employees. While from the churned customers, 50% of the have less than 10,000 employees. Smaller companies showing higher churn rate?
+
+Active users tend to skew right, meaning customers that tend to experience more active monthly users tend to remain active. While those seeing fewer monthly active members tend to churn. 62% of active customers had a max monthly report views of 25 and below. While 66% of churned customers had a max monthly report views higher than 25.
+
+As seen, there are outlier values in almost all indicators. One might be interested in identifying the outliers and removing them to best visualize variables. 
+
+
+```{r outliers, include=TRUE}
+#Number of employees
+quartiles <- quantile(churn$Number_of_employees)
+# 75% minus 25% = interquartile range 
+iqr <- quartiles[[4]] - quartiles[[2]]
+# Outlier boundaries
+lower_bound <- quartiles[[2]] - (1.5 * iqr)
+upper_bound <- quartiles[[4]] + (1.5 * iqr)
+
+# Isolate outlier(s)
+emp.outliers <- churn%>% 
+  filter(Number_of_employees > upper_bound | Number_of_employees< lower_bound)
+
+#ARR
+quartiles <- quantile(churn$Arr)
+iqr <- quartiles[[4]] - quartiles[[2]]
+lower_bound <- quartiles[[2]] - (1.5 * iqr)
+upper_bound <- quartiles[[4]] + (1.5 * iqr)
+
+arr.outliers <- churn%>% 
+  filter(Arr > upper_bound | Arr< lower_bound)
+
+#Average active
+quartiles <- quantile(churn$`Average_active_users_/_Month`)
+iqr <- quartiles[[4]] - quartiles[[2]]
+lower_bound <- quartiles[[2]] - (1.5 * iqr)
+upper_bound <- quartiles[[4]] + (1.5 * iqr)
+
+avg.outliers <- churn%>% 
+  filter(`Average_active_users_/_Month` > upper_bound | `Average_active_users_/_Month`< lower_bound)
+
+#Max report views
+quartiles <- quantile(churn$`Max_report_views_/_Month`)
+iqr <- quartiles[[4]] - quartiles[[2]]
+lower_bound <- quartiles[[2]] - (1.5 * iqr)
+upper_bound <- quartiles[[4]] + (1.5 * iqr)
+
+rep.outliers <- churn%>% 
+  filter(`Max_report_views_/_Month` > upper_bound | `Max_report_views_/_Month`< lower_bound)
+```
+
+
+
+```{r feature2, include=TRUE, fig.align='center', fig.width=8}
+churn<-churn%>%
+  rename(Churn=Status)
+
+churn<-churn%>%
+  mutate(Churn=ifelse(Churn=="Churned", 1, 0))
+churn$Churn<-as.factor(churn$Churn)
+
+#Chi square to feature select categorical values
+#Sample size is small and affects Chi-square which is sensitive to sample size
+fisher.test(table(churn$Churn, churn$Csm_approach))
+
+#data partition
+set.seed(4)
+sample_set <- churn %>%
+  pull(.) %>% 
+  sample.split(SplitRatio = .7)
+
+churnTrain <- subset(churn, sample_set == TRUE)
+churnTest <- subset(churn, sample_set == FALSE)
+
+#Check split
+round(prop.table(table(churn$Churn)),3)
+round(prop.table(table(churnTrain$Churn)),3)
+round(prop.table(table(churnTest$Churn)),3)
+
+#Alternative (i prefer this method)
+intrain<- createDataPartition(churn$Churn,p=0.7,list=FALSE)
+set.seed(2020)
+training<- churn[intrain,]
+testing<- churn[-intrain,]
+
+
+round(prop.table(table(churn$Churn)),3)
+round(prop.table(table(training$Churn)),3)
+round(prop.table(table(testing$Churn)),3)
+
+## Train the model
+logit.mod <- glm(Churn ~., family = binomial(link = 'logit'), 
+                 data = churnTrain)
+
+## Look at the result
+summary(logit.mod)
+
+## Predict the outcomes against our test data
+logit.pred.prob <- predict(logit.mod, churnTest, type = 'response')
+logit.pred <- as.factor(ifelse(logit.pred.prob > 0.5, 1, 0))
+head(churnTest)
+
+head(logit.pred.prob)
+
+#Confusion matrix
+caret::confusionMatrix(logit.pred, churnTest$Churn, positive = "1")
+
+#Feature analysis
+anova(logit.mod, test="Chisq")
+
+#Odd ratio
+exp(cbind(coef(logit.mod), confint.default(logit.mod)))
+
+#Decision Tree
+training<-training%>%
+  rename(Avg_active_users=`Average_active_users_/_Month`,
+         Max_views=`Max_report_views_/_Month`)
+
+tree.model <- rpart(Churn ~ .,
+                    data = training,
+                    method = "class",
+                    control = rpart.control(xval = 10))
+# Plot
+rpart.plot(tree.model)
+
+
+#random forest
+## Create a control object.
+ctrl <- trainControl(method = "cv",
+                     number = 2,
+                     selectionFunction = "best")
+
+## Create a grid search based on the available parameters.
+grid <- expand.grid(.mtry = c(1:8))
+
+## Build the random forest model
+rf.mod <- 
+  train(Churn ~.,
+        data = training,
+        method = 'rf',
+        metric = 'Kappa',
+        trControl = ctrl,
+        tuneGrid = grid)
+
+rf.mod
+
+#Alternative
+set.seed(4)
+rf.mod2 = randomForest(Churn ~ ., data=training, ntree=100, mtry=3, importance=TRUE)
+
+rf.mod2
+
+varImpPlot(rf.mod2)
+plot(rf.mod2) #8 trees lowers the error rate
+
+#Try new forest model
+rf.mod2_new<- randomForest(Churn ~ ., data=training, ntree=3, mtry=5, importance=TRUE, proximity=TRUE)
+rf.mod2_new
+
+#Error rate went down from 60% to 50%
+
+varImpPlot(rf.mod2, sort=T, n.var = 6, main = 'Top 6 Feature Importance')
+
+```
+
+
+As the dataset is small, it is hard to find any significant values (p-values) as the standard errors are also very big. While the prediction model has an accuracy of 66% its pvalue is not significant (small sample size effects).
+
+The most relevant indicators on churn are number of employees (size of the company), average active users and max report views per month. Only Max report views is significant at the 99% level, while average active users is significant at the 90% level. Interestingly, NPS values do not do a very good job at predicting if a customer will churn or not! We can reject the null hypothesis that NPS predicts customer churn.
+
+As a CMS it would be wise to monitor customer's average users on the SaaS (product usage/consumption) as well as the average active users per month. These would be the best predictors for any potential customer likely to churn. 
+
+If we are to check just the most significant factor, the odds of a customer churning increases 1.5 times for each increase in max report views.
+
+Using the random forest predictor, the error rate is relatively low when predicting customers that will not churn while it is relatively high when predicting customers that will churn.
+
+
