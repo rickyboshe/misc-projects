@@ -4,7 +4,7 @@ author: "Fredrick Boshe"
 date: "24/05/2021"
 output: 
   github_document: default
-  rmarkdown::github_document: default
+  rmarkdown::github_document: default 
 ---
 
 New York city is known to be one of the most expensive cities in the world when it comes to real estate. The city has 5 different **boroughs**, with each having its unique socioeconomic profile that helps determine the real estate prices. 
@@ -30,6 +30,8 @@ library(jsonlite)
 library(readxl)
 library(DataExplorer)
 library(broom)
+library(kableExtra)
+library(jtools)
 
 
 #Load data
@@ -171,8 +173,8 @@ nyc$Neighborhood<-NULL
 nyc$Zip_code<-NULL
 nyc$Tax_class_at_present<-NULL
 
-
-#Check for multicorrliniality
+#Factor selection
+#Check for multicollinearity
 numnyc <- names(which(sapply(nyc, is.numeric)))
 corr <- cor(nyc[,numnyc], use = 'pairwise.complete.obs')
 p3<-ggcorrplot(corr, lab = TRUE)
@@ -206,15 +208,14 @@ nyc%>%ggplot(aes(x=Gross_square_feet, y=Sale_price, color=Borough))+
   scale_y_continuous(labels = comma)+
   facet_wrap(~Borough, ncol = 2, scales = "free")
 
-#Regression
-nyc_fit<-lm(Sale_price~Borough+Building_class_category+
-              Residential_units+Commercial_units+Land_square_feet+
-              Gross_square_feet+Year_built+Building_class_at_time_of_sale, data=nyc)
-summary(nyc_fit)
+#Regression with two most important factors, Borough and gross size of property
+nyc_fit<-lm(Sale_price~Borough+Gross_square_feet, data=nyc)
+summ(nyc_fit)
 
+par(mfrow=c(2,2))
+plot(nyc_fit)
 
-
-#Generate multiple linear models
+#Best model by Borough (Generate multiple linear models)
 ##First nest data by the category
 nyc_nest<-nyc%>%
   group_by(Borough)%>%
@@ -223,9 +224,7 @@ nyc_nest<-nyc%>%
 ##Second run a liner regression across all categories, using a mapping function
 nyc_nest<-nyc_nest%>%
   mutate(linear_model=map(.x= data, 
-                          .f= ~lm(Sale_price~Building_class_category+Residential_units+
-                                    Commercial_units+Land_square_feet+Gross_square_feet+
-                                    Year_built+Building_class_at_time_of_sale, data=.)
+                          .f= ~lm(Sale_price~+Gross_square_feet, data=.)
                           ))
 
 ##Third select the broom function suitable

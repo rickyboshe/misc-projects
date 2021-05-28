@@ -204,8 +204,8 @@ nyc$Neighborhood<-NULL
 nyc$Zip_code<-NULL
 nyc$Tax_class_at_present<-NULL
 
-
-#Check for multicorrliniality
+#Factor selection
+#Check for multicollinearity
 numnyc <- names(which(sapply(nyc, is.numeric)))
 corr <- cor(nyc[,numnyc], use = 'pairwise.complete.obs')
 p3<-ggcorrplot(corr, lab = TRUE)
@@ -255,92 +255,208 @@ nyc%>%ggplot(aes(x=Gross_square_feet, y=Sale_price, color=Borough))+
 <img src="NYC-Property-Sales_files/figure-gfm/cleaning2-3.png" style="display: block; margin: auto;" />
 
 ``` r
-#Regression
-nyc_fit<-lm(Sale_price~Borough+Building_class_category+
-              Residential_units+Commercial_units+Land_square_feet+
-              Gross_square_feet+Year_built+Building_class_at_time_of_sale, data=nyc)
-summary(nyc_fit)
+#Regression with two most important factors, Borough and gross size of property
+nyc_fit<-lm(Sale_price~Borough+Gross_square_feet, data=nyc)
+summ(nyc_fit)
 ```
 
-    ## 
-    ## Call:
-    ## lm(formula = Sale_price ~ Borough + Building_class_category + 
-    ##     Residential_units + Commercial_units + Land_square_feet + 
-    ##     Gross_square_feet + Year_built + Building_class_at_time_of_sale, 
-    ##     data = nyc)
-    ## 
-    ## Residuals:
-    ##      Min       1Q   Median       3Q      Max 
-    ## -6413391  -214732     3194   190642 43065519 
-    ## 
-    ## Coefficients: (2 not defined because of singularities)
-    ##                                                 Estimate Std. Error t value
-    ## (Intercept)                                    3.352e+06  4.742e+05   7.069
-    ## BoroughBrooklyn                                4.760e+05  2.189e+04  21.745
-    ## BoroughManhattan                               4.682e+06  7.748e+04  60.428
-    ## BoroughQueens                                  3.138e+05  2.077e+04  15.109
-    ## BoroughStaten Island                           1.637e+05  2.438e+04   6.716
-    ## Building_class_categoryThree Family Dwellings  2.515e+05  1.620e+05   1.553
-    ## Building_class_categoryTwo Family Dwellings    7.528e+05  4.307e+05   1.748
-    ## Residential_units                             -4.468e+05  7.634e+04  -5.853
-    ## Commercial_units                              -9.398e+05  4.128e+05  -2.277
-    ## Land_square_feet                              -2.248e+01  3.802e+00  -5.911
-    ## Gross_square_feet                              6.109e+02  1.012e+01  60.373
-    ## Year_built                                    -1.614e+03  2.388e+02  -6.759
-    ## Building_class_at_time_of_saleA1              -2.237e+05  5.328e+04  -4.198
-    ## Building_class_at_time_of_saleA2              -4.642e+04  5.529e+04  -0.840
-    ## Building_class_at_time_of_saleA3              -2.991e+05  7.909e+04  -3.782
-    ## Building_class_at_time_of_saleA4               1.633e+06  9.214e+04  17.727
-    ## Building_class_at_time_of_saleA5              -1.850e+05  5.435e+04  -3.403
-    ## Building_class_at_time_of_saleA6              -5.088e+04  1.542e+05  -0.330
-    ## Building_class_at_time_of_saleA7               2.633e+06  2.821e+05   9.334
-    ## Building_class_at_time_of_saleA9              -2.130e+05  6.158e+04  -3.459
-    ## Building_class_at_time_of_saleB1              -7.822e+05  4.174e+05  -1.874
-    ## Building_class_at_time_of_saleB2              -7.540e+05  4.176e+05  -1.805
-    ## Building_class_at_time_of_saleB3              -5.940e+05  4.176e+05  -1.422
-    ## Building_class_at_time_of_saleB9              -6.468e+05  4.184e+05  -1.546
-    ## Building_class_at_time_of_saleC0                      NA         NA      NA
-    ## Building_class_at_time_of_saleS0               1.819e+06  9.527e+05   1.909
-    ## Building_class_at_time_of_saleS1               4.466e+05  4.157e+05   1.074
-    ## Building_class_at_time_of_saleS2                      NA         NA      NA
-    ##                                               Pr(>|t|)    
-    ## (Intercept)                                   1.62e-12 ***
-    ## BoroughBrooklyn                                < 2e-16 ***
-    ## BoroughManhattan                               < 2e-16 ***
-    ## BoroughQueens                                  < 2e-16 ***
-    ## BoroughStaten Island                          1.93e-11 ***
-    ## Building_class_categoryThree Family Dwellings 0.120482    
-    ## Building_class_categoryTwo Family Dwellings   0.080481 .  
-    ## Residential_units                             4.90e-09 ***
-    ## Commercial_units                              0.022820 *  
-    ## Land_square_feet                              3.45e-09 ***
-    ## Gross_square_feet                              < 2e-16 ***
-    ## Year_built                                    1.43e-11 ***
-    ## Building_class_at_time_of_saleA1              2.71e-05 ***
-    ## Building_class_at_time_of_saleA2              0.401126    
-    ## Building_class_at_time_of_saleA3              0.000156 ***
-    ## Building_class_at_time_of_saleA4               < 2e-16 ***
-    ## Building_class_at_time_of_saleA5              0.000667 ***
-    ## Building_class_at_time_of_saleA6              0.741477    
-    ## Building_class_at_time_of_saleA7               < 2e-16 ***
-    ## Building_class_at_time_of_saleA9              0.000544 ***
-    ## Building_class_at_time_of_saleB1              0.060966 .  
-    ## Building_class_at_time_of_saleB2              0.071020 .  
-    ## Building_class_at_time_of_saleB3              0.154944    
-    ## Building_class_at_time_of_saleB9              0.122118    
-    ## Building_class_at_time_of_saleC0                    NA    
-    ## Building_class_at_time_of_saleS0              0.056257 .  
-    ## Building_class_at_time_of_saleS1              0.282687    
-    ## Building_class_at_time_of_saleS2                    NA    
-    ## ---
-    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
-    ## 
-    ## Residual standard error: 819900 on 18646 degrees of freedom
-    ## Multiple R-squared:  0.4752, Adjusted R-squared:  0.4745 
-    ## F-statistic: 675.3 on 25 and 18646 DF,  p-value: < 2.2e-16
+<table class="table table-striped table-hover table-condensed table-responsive" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<tbody>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+Observations
+</td>
+<td style="text-align:right;">
+18672
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+Dependent variable
+</td>
+<td style="text-align:right;">
+Sale\_price
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+Type
+</td>
+<td style="text-align:right;">
+OLS linear regression
+</td>
+</tr>
+</tbody>
+</table>
+<table class="table table-striped table-hover table-condensed table-responsive" style="width: auto !important; margin-left: auto; margin-right: auto;">
+<tbody>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+F(5,18666)
+</td>
+<td style="text-align:right;">
+2864.50
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+R²
+</td>
+<td style="text-align:right;">
+0.43
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+Adj. R²
+</td>
+<td style="text-align:right;">
+0.43
+</td>
+</tr>
+</tbody>
+</table>
+<table class="table table-striped table-hover table-condensed table-responsive" style="width: auto !important; margin-left: auto; margin-right: auto;border-bottom: 0;">
+<thead>
+<tr>
+<th style="text-align:left;">
+</th>
+<th style="text-align:right;">
+Est.
+</th>
+<th style="text-align:right;">
+S.E.
+</th>
+<th style="text-align:right;">
+t val.
+</th>
+<th style="text-align:right;">
+p
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+(Intercept)
+</td>
+<td style="text-align:right;">
+-419678.54
+</td>
+<td style="text-align:right;">
+24808.88
+</td>
+<td style="text-align:right;">
+-16.92
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+BoroughBrooklyn
+</td>
+<td style="text-align:right;">
+533430.22
+</td>
+<td style="text-align:right;">
+22094.32
+</td>
+<td style="text-align:right;">
+24.14
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+BoroughManhattan
+</td>
+<td style="text-align:right;">
+5627649.72
+</td>
+<td style="text-align:right;">
+74651.83
+</td>
+<td style="text-align:right;">
+75.39
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+BoroughQueens
+</td>
+<td style="text-align:right;">
+348651.33
+</td>
+<td style="text-align:right;">
+21166.56
+</td>
+<td style="text-align:right;">
+16.47
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+BoroughStaten Island
+</td>
+<td style="text-align:right;">
+172686.63
+</td>
+<td style="text-align:right;">
+23103.13
+</td>
+<td style="text-align:right;">
+7.47
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+Gross\_square\_feet
+</td>
+<td style="text-align:right;">
+502.33
+</td>
+<td style="text-align:right;">
+7.83
+</td>
+<td style="text-align:right;">
+64.16
+</td>
+<td style="text-align:right;">
+0.00
+</td>
+</tr>
+</tbody>
+<tfoot>
+<tr>
+<td style="padding: 0; " colspan="100%">
+<sup></sup> Standard errors: OLS
+</td>
+</tr>
+</tfoot>
+</table>
 
 ``` r
-#Generate multiple linear models
+par(mfrow=c(2,2))
+plot(nyc_fit)
+```
+
+<img src="NYC-Property-Sales_files/figure-gfm/cleaning2-4.png" style="display: block; margin: auto;" />
+
+``` r
+#Best model by Borough (Generate multiple linear models)
 ##First nest data by the category
 nyc_nest<-nyc%>%
   group_by(Borough)%>%
@@ -349,9 +465,7 @@ nyc_nest<-nyc%>%
 ##Second run a liner regression across all categories, using a mapping function
 nyc_nest<-nyc_nest%>%
   mutate(linear_model=map(.x= data, 
-                          .f= ~lm(Sale_price~Building_class_category+Residential_units+
-                                    Commercial_units+Land_square_feet+Gross_square_feet+
-                                    Year_built+Building_class_at_time_of_sale, data=.)
+                          .f= ~lm(Sale_price~+Gross_square_feet, data=.)
                           ))
 
 ##Third select the broom function suitable
@@ -372,11 +486,11 @@ nyc_nest%>%
     ## # Groups:   Borough [5]
     ##   Borough    term      estimate std.error statistic   p.value conf.low conf.high
     ##   <fct>      <chr>        <dbl>     <dbl>     <dbl>     <dbl>    <dbl>     <dbl>
-    ## 1 Bronx      Gross_sq~     77.4      8.35      9.27 4.43e- 20     61.0      93.7
-    ## 2 Staten Is~ Gross_sq~    131.       4.70     27.7  7.28e-155    121.      140. 
-    ## 3 Queens     Gross_sq~    219.       7.30     30.0  2.41e-186    204.      233. 
-    ## 4 Brooklyn   Gross_sq~    589.      19.8      29.7  1.44e-178    550.      628. 
-    ## 5 Manhattan  Gross_sq~   1463.     278.        5.27 5.37e-  7    914.     2011.
+    ## 1 Bronx      Gross_sq~     160.      6.94      23.1 2.85e-105     147.      174.
+    ## 2 Staten Is~ Gross_sq~     229.      3.50      65.5 0.            223.      236.
+    ## 3 Queens     Gross_sq~     289.      5.14      56.1 0.            279.      299.
+    ## 4 Brooklyn   Gross_sq~     556.     16.0       34.7 1.61e-236     524.      587.
+    ## 5 Manhattan  Gross_sq~    2499.    181.        13.8 2.34e- 28    2142.     2856.
 
 ``` r
 #This shows that Manhattan has the highest increase in sale price for every increase in gross square feet. Bronx has the lowest
@@ -401,11 +515,11 @@ nyc_nest%>%
     ## # Groups:   Borough [5]
     ##   Borough       r.squared
     ##   <fct>             <dbl>
-    ## 1 Brooklyn          0.273
-    ## 2 Queens            0.353
-    ## 3 Bronx             0.425
-    ## 4 Staten Island     0.643
-    ## 5 Manhattan         0.663
+    ## 1 Brooklyn          0.196
+    ## 2 Bronx             0.201
+    ## 3 Queens            0.296
+    ## 4 Staten Island     0.520
+    ## 5 Manhattan         0.567
 
 ``` r
 #Brooklyn has the lowest R squared while Manhattan has the highest R Squared
