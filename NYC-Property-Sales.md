@@ -3,6 +3,8 @@ NYC Property Sales
 Fredrick Boshe
 24/05/2021
 
+## Introduction
+
 New York city is known to be one of the most expensive cities in the
 world when it comes to real estate. The city has 5 different
 **boroughs**, with each having its unique socioeconomic profile that
@@ -17,9 +19,13 @@ Finance](https://www1.nyc.gov/site/finance/taxes/property-rolling-sales-data.pag
 this project looks to analyze housing costs for the last 12 months and
 use regression models to predict prices based on indicators.
 
+## Data Manipulation
+
 The data is found in 4 distinct excel files. Read them to the
 environment and merge them in a single dataframe, making it easier to
 handle.
+
+### Data Cleaning
 
 ``` r
 #The boroughs are coded (manhattan=1, bronx=2, brooklyn=3, queens=4, staten=5)
@@ -78,7 +84,10 @@ nyc<-nyc%>%
 ```
 
 The initial data cleaning and manipulation helps set the data up ready
-for exploration and followed by analysis.
+for exploration and followed by analysis i.e. removing missing
+observations and exploring the data.
+
+### Data Exploration
 
 ``` r
 plot_intro(nyc, ggtheme = theme_bw())
@@ -154,8 +163,9 @@ the outliers. One potential way is by keeping just residential dwellings
 [here](https://www1.nyc.gov/assets/finance/jump/hlpbldgcode.html)).
 Manhattan will see a considerable drop in observations (<span
 style="color: red;">76%</span>) while the least drop in observations was
-for Staten Island (<span style="color: red;">2%</span>). coincidentally
-lower the number of observations from Manhattan.
+for Staten Island (<span style="color: red;">2%</span>).
+
+### Data Outliers
 
 ``` r
 #Residential Units
@@ -188,7 +198,29 @@ upper_bound <- quartiles[[4]] + (1.5 * iqr)
 price.outliers <- nyc%>% 
   filter(Borough=="Bronx")%>%
   filter(Sale_price > upper_bound | Sale_price< lower_bound)
+
+#Bronx has two duplicate outliers, remove them
+nyc<-nyc%>%
+  filter(Sale_price!=87400000)
+
+#remove duplicates
+nyc<-nyc%>%
+  distinct()
 ```
+
+## Modeling
+
+To successfully model real estate prices we must select the best
+predictor variables (independent variables) that will best explain the
+prices.
+
+### Factor selection
+
+As OLS assumes no multicollinearity between independent variables, a
+correlation matrix helps us identify variables that are strongly
+correlated and thus removable. In our case, *Total Units* is highly
+correlated with *Residential units* and mildly correlated with *Gross
+Square Feet*. We therefore remove *Total Units* from the equation.
 
 ``` r
 #Recode columns to proper data types
@@ -204,7 +236,6 @@ nyc$Neighborhood<-NULL
 nyc$Zip_code<-NULL
 nyc$Tax_class_at_present<-NULL
 
-#Factor selection
 #Check for multicollinearity
 numnyc <- names(which(sapply(nyc, is.numeric)))
 corr <- cor(nyc[,numnyc], use = 'pairwise.complete.obs')
@@ -212,13 +243,13 @@ p3<-ggcorrplot(corr, lab = TRUE)
 p3
 ```
 
-<img src="NYC-Property-Sales_files/figure-gfm/cleaning2-1.png" style="display: block; margin: auto;" />
+<img src="NYC-Property-Sales_files/figure-gfm/factor-1.png" style="display: block; margin: auto;" />
 
 ``` r
 #Total units has strong relationship with Residential units, so i shall remove it
 nyc$Total_units<-NULL
 
-#Visualize relationship between slae price and gross size
+#Visualize relationship between sale price and gross size
 nyc%>%ggplot(aes(x=Gross_square_feet, y=Sale_price, color=Borough))+
   geom_point()+
   theme_bw()+
@@ -229,30 +260,9 @@ nyc%>%ggplot(aes(x=Gross_square_feet, y=Sale_price, color=Borough))+
 
     ## `geom_smooth()` using formula 'y ~ x'
 
-<img src="NYC-Property-Sales_files/figure-gfm/cleaning2-2.png" style="display: block; margin: auto;" />
+<img src="NYC-Property-Sales_files/figure-gfm/factor-2.png" style="display: block; margin: auto;" />
 
-``` r
-#Bronx has two duplicate outliers, remove them
-nyc<-nyc%>%
-  filter(Sale_price!=87400000)
-
-#remove duplicates
-nyc<-nyc%>%
-  distinct()
-
-#Visualize relationship again
-nyc%>%ggplot(aes(x=Gross_square_feet, y=Sale_price, color=Borough))+
-  geom_point()+
-  theme_bw()+
-  geom_smooth(method = "lm", se = FALSE)+
-  theme(legend.position = "none")+
-  scale_y_continuous(labels = comma)+
-  facet_wrap(~Borough, ncol = 2, scales = "free")
-```
-
-    ## `geom_smooth()` using formula 'y ~ x'
-
-<img src="NYC-Property-Sales_files/figure-gfm/cleaning2-3.png" style="display: block; margin: auto;" />
+### Regression
 
 ``` r
 #Regression with two most important factors, Borough and gross size of property
@@ -267,7 +277,7 @@ summ(nyc_fit)
 Observations
 </td>
 <td style="text-align:right;">
-18672
+18694
 </td>
 </tr>
 <tr>
@@ -292,10 +302,10 @@ OLS linear regression
 <tbody>
 <tr>
 <td style="text-align:left;font-weight: bold;">
-F(5,18666)
+F(5,18688)
 </td>
 <td style="text-align:right;">
-2864.50
+2821.81
 </td>
 </tr>
 <tr>
@@ -341,13 +351,13 @@ p
 (Intercept)
 </td>
 <td style="text-align:right;">
--419678.54
+-420293.81
 </td>
 <td style="text-align:right;">
-24808.88
+25003.92
 </td>
 <td style="text-align:right;">
--16.92
+-16.81
 </td>
 <td style="text-align:right;">
 0.00
@@ -358,13 +368,13 @@ p
 BoroughBrooklyn
 </td>
 <td style="text-align:right;">
-533430.22
+536145.35
 </td>
 <td style="text-align:right;">
-22094.32
+22267.41
 </td>
 <td style="text-align:right;">
-24.14
+24.08
 </td>
 <td style="text-align:right;">
 0.00
@@ -375,13 +385,13 @@ BoroughBrooklyn
 BoroughManhattan
 </td>
 <td style="text-align:right;">
-5627649.72
+5627046.36
 </td>
 <td style="text-align:right;">
-74651.83
+75272.96
 </td>
 <td style="text-align:right;">
-75.39
+74.76
 </td>
 <td style="text-align:right;">
 0.00
@@ -392,13 +402,13 @@ BoroughManhattan
 BoroughQueens
 </td>
 <td style="text-align:right;">
-348651.33
+348373.75
 </td>
 <td style="text-align:right;">
-21166.56
+21333.20
 </td>
 <td style="text-align:right;">
-16.47
+16.33
 </td>
 <td style="text-align:right;">
 0.00
@@ -409,13 +419,13 @@ BoroughQueens
 BoroughStaten Island
 </td>
 <td style="text-align:right;">
-172686.63
+173173.65
 </td>
 <td style="text-align:right;">
-23103.13
+23286.41
 </td>
 <td style="text-align:right;">
-7.47
+7.44
 </td>
 <td style="text-align:right;">
 0.00
@@ -426,13 +436,13 @@ BoroughStaten Island
 Gross\_square\_feet
 </td>
 <td style="text-align:right;">
-502.33
+502.60
 </td>
 <td style="text-align:right;">
-7.83
+7.89
 </td>
 <td style="text-align:right;">
-64.16
+63.71
 </td>
 <td style="text-align:right;">
 0.00
@@ -447,13 +457,6 @@ Gross\_square\_feet
 </tr>
 </tfoot>
 </table>
-
-``` r
-par(mfrow=c(2,2))
-plot(nyc_fit)
-```
-
-<img src="NYC-Property-Sales_files/figure-gfm/cleaning2-4.png" style="display: block; margin: auto;" />
 
 ``` r
 #Best model by Borough (Generate multiple linear models)
@@ -475,22 +478,23 @@ nyc_nest<-nyc_nest%>%
                        .f=tidy, conf.int=TRUE))
 
 #Fourth we Unnest
-nyc_nest%>%
+p_borough<-nyc_nest%>%
   select(Borough, tidy_coef)%>%
   unnest(cols = tidy_coef)%>%
   filter(term=="Gross_square_feet")%>%
   arrange(estimate)
+
+panderOptions('table.split.table', 300)
+pander(p_borough, round=3)
 ```
 
-    ## # A tibble: 5 x 8
-    ## # Groups:   Borough [5]
-    ##   Borough    term      estimate std.error statistic   p.value conf.low conf.high
-    ##   <fct>      <chr>        <dbl>     <dbl>     <dbl>     <dbl>    <dbl>     <dbl>
-    ## 1 Bronx      Gross_sq~     160.      6.94      23.1 2.85e-105     147.      174.
-    ## 2 Staten Is~ Gross_sq~     229.      3.50      65.5 0.            223.      236.
-    ## 3 Queens     Gross_sq~     289.      5.14      56.1 0.            279.      299.
-    ## 4 Brooklyn   Gross_sq~     556.     16.0       34.7 1.61e-236     524.      587.
-    ## 5 Manhattan  Gross_sq~    2499.    181.        13.8 2.34e- 28    2142.     2856.
+|    Borough    |        term         | estimate | std.error | statistic | p.value | conf.low | conf.high |
+|:-------------:|:-------------------:|:--------:|:---------:|:---------:|:-------:|:--------:|:---------:|
+|     Bronx     | Gross\_square\_feet |  160.2   |   6.94    |   23.09   |    0    |  146.6   |   173.8   |
+| Staten Island | Gross\_square\_feet |  229.3   |   3.512   |   65.3    |    0    |  222.4   |   236.2   |
+|    Queens     | Gross\_square\_feet |  288.2   |   5.138   |   56.08   |    0    |  278.1   |   298.3   |
+|   Brooklyn    | Gross\_square\_feet |  557.7   |   16.38   |   34.06   |    0    |  525.6   |   589.8   |
+|   Manhattan   | Gross\_square\_feet |   2499   |   180.6   |   13.84   |    0    |   2142   |   2856    |
 
 ``` r
 #This shows that Manhattan has the highest increase in sale price for every increase in gross square feet. Bronx has the lowest
@@ -502,24 +506,27 @@ nyc_nest<-nyc_nest%>%
                        .f=glance))
 
 #we Unnest
-nyc_nest%>%
+r_borough<-nyc_nest%>%
   select(Borough, glance_coef)%>%
   unnest(cols = glance_coef)%>%
-  select(r.squared)%>%
+  select(r.squared, adj.r.squared, p.value, AIC, BIC)%>%
   arrange(r.squared)
 ```
 
     ## Adding missing grouping variables: `Borough`
 
-    ## # A tibble: 5 x 2
-    ## # Groups:   Borough [5]
-    ##   Borough       r.squared
-    ##   <fct>             <dbl>
-    ## 1 Brooklyn          0.196
-    ## 2 Bronx             0.201
-    ## 3 Queens            0.296
-    ## 4 Staten Island     0.520
-    ## 5 Manhattan         0.567
+``` r
+panderOptions('table.split.table', 300)
+pander(r_borough, round=3)
+```
+
+|    Borough    | r.squared | adj.r.squared | p.value |  AIC   |  BIC   |
+|:-------------:|:---------:|:-------------:|:-------:|:------:|:------:|
+|   Brooklyn    |   0.19    |     0.189     |    0    | 151233 | 151253 |
+|     Bronx     |   0.201   |     0.201     |    0    | 58880  | 58897  |
+|    Queens     |   0.296   |     0.295     |    0    | 210044 | 210065 |
+| Staten Island |   0.518   |     0.518     |    0    | 107161 | 107179 |
+|   Manhattan   |   0.567   |     0.564     |    0    |  5002  |  5011  |
 
 ``` r
 #Brooklyn has the lowest R squared while Manhattan has the highest R Squared

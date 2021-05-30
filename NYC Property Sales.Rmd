@@ -7,6 +7,7 @@ output:
   rmarkdown::github_document: default 
 ---
 
+## Introduction
 New York city is known to be one of the most expensive cities in the world when it comes to real estate. The city has 5 different **boroughs**, with each having its unique socioeconomic profile that helps determine the real estate prices. 
 
 <center>
@@ -32,6 +33,9 @@ library(DataExplorer)
 library(broom)
 library(kableExtra)
 library(jtools)
+library(pander)
+
+library(webshot2)
 
 
 #Load data
@@ -43,8 +47,12 @@ queens<-read_excel("C:/Users/ricky/Documents/Datasets/NYC Property Sales/rolling
 
 ```
 
+
+
+## Data Manipulation
 The data is found in 4 distinct excel files. Read them to the environment and merge them in a single dataframe, making it easier to handle. 
 
+### Data Cleaning
 ```{r cleaning, include=TRUE}
 #The boroughs are coded (manhattan=1, bronx=2, brooklyn=3, queens=4, staten=5)
 nyc<-bind_rows(manhattan,bronx,brooklyn,queens,staten)
@@ -84,8 +92,10 @@ nyc<-nyc%>%
   select(-5,-6,-7,-8,-10)
 ```
 
-The initial data cleaning and manipulation helps set the data up ready for exploration and followed by analysis.
+The initial data cleaning and manipulation helps set the data up ready for exploration and followed by analysis i.e. removing missing observations and exploring the data. 
 
+
+### Data Exploration
 ```{r explore, include=TRUE, fig.align='center', fig.width=8, message=FALSE}
 plot_intro(nyc, ggtheme = theme_bw())
 
@@ -121,10 +131,10 @@ plot_bar(nyc, maxcat = 5,
 Very few missing observations (14), and they seem to be from the *Year Built* column. We can go ahead and remove them since they make up just 0.04% of the data.
 
 
-You can also observe that most variables have very huge outliers that skew their charts positively. Going forward, we might need to deal with the outliers. One potential way is by keeping just residential dwellings (building codes can be found [here](https://www1.nyc.gov/assets/finance/jump/hlpbldgcode.html)). Manhattan will see a considerable drop in observations (<span style="color: red;">76%</span>) while the least drop in observations was for Staten Island (<span style="color: red;">2%</span>).  coincidentally lower the number of observations from Manhattan. 
+You can also observe that most variables have very huge outliers that skew their charts positively. Going forward, we might need to deal with the outliers. One potential way is by keeping just residential dwellings (building codes can be found [here](https://www1.nyc.gov/assets/finance/jump/hlpbldgcode.html)). Manhattan will see a considerable drop in observations (<span style="color: red;">76%</span>) while the least drop in observations was for Staten Island (<span style="color: red;">2%</span>).  
 
 
-
+### Data Outliers
 ```{r outliers, include=TRUE}
 #Residential Units
 quartiles <- quantile(nyc$Residential_units)
@@ -156,10 +166,24 @@ upper_bound <- quartiles[[4]] + (1.5 * iqr)
 price.outliers <- nyc%>% 
   filter(Borough=="Bronx")%>%
   filter(Sale_price > upper_bound | Sale_price< lower_bound)
+
+#Bronx has two duplicate outliers, remove them
+nyc<-nyc%>%
+  filter(Sale_price!=87400000)
+
+#remove duplicates
+nyc<-nyc%>%
+  distinct()
 ```
 
 
-```{r cleaning2, include=TRUE, fig.align='center', fig.width=8}
+## Modeling
+To successfully model real estate prices we must select the best predictor variables (independent variables) that will best explain the prices. 
+
+
+### Factor selection
+As OLS assumes no multicollinearity between independent variables, a correlation matrix helps us identify variables that are strongly correlated and thus removable. In our case, *Total Units* is highly correlated with *Residential units* and mildly correlated with *Gross Square Feet*. We therefore remove *Total Units* from the equation. 
+```{r factor, include=TRUE, fig.align='center', fig.width=8}
 #Recode columns to proper data types
 nyc<-nyc%>%
   mutate(Borough=as.factor(Borough),
@@ -173,7 +197,6 @@ nyc$Neighborhood<-NULL
 nyc$Zip_code<-NULL
 nyc$Tax_class_at_present<-NULL
 
-#Factor selection
 #Check for multicollinearity
 numnyc <- names(which(sapply(nyc, is.numeric)))
 corr <- cor(nyc[,numnyc], use = 'pairwise.complete.obs')
@@ -183,37 +206,21 @@ p3
 #Total units has strong relationship with Residential units, so i shall remove it
 nyc$Total_units<-NULL
 
-#Visualize relationship between slae price and gross size
+#Visualize relationship between sale price and gross size
 nyc%>%ggplot(aes(x=Gross_square_feet, y=Sale_price, color=Borough))+
   geom_point()+
   theme_bw()+
   geom_smooth(method = "lm", se = FALSE)+
   theme(legend.position = "none")+
   facet_wrap(~Borough, ncol = 2, scales = "free")
+```
 
-#Bronx has two duplicate outliers, remove them
-nyc<-nyc%>%
-  filter(Sale_price!=87400000)
 
-#remove duplicates
-nyc<-nyc%>%
-  distinct()
-
-#Visualize relationship again
-nyc%>%ggplot(aes(x=Gross_square_feet, y=Sale_price, color=Borough))+
-  geom_point()+
-  theme_bw()+
-  geom_smooth(method = "lm", se = FALSE)+
-  theme(legend.position = "none")+
-  scale_y_continuous(labels = comma)+
-  facet_wrap(~Borough, ncol = 2, scales = "free")
-
+### Regression
+```{r regression, include=TRUE}
 #Regression with two most important factors, Borough and gross size of property
 nyc_fit<-lm(Sale_price~Borough+Gross_square_feet, data=nyc)
 summ(nyc_fit)
-
-par(mfrow=c(2,2))
-plot(nyc_fit)
 
 #Best model by Borough (Generate multiple linear models)
 ##First nest data by the category
@@ -234,11 +241,14 @@ nyc_nest<-nyc_nest%>%
                        .f=tidy, conf.int=TRUE))
 
 #Fourth we Unnest
-nyc_nest%>%
+p_borough<-nyc_nest%>%
   select(Borough, tidy_coef)%>%
   unnest(cols = tidy_coef)%>%
   filter(term=="Gross_square_feet")%>%
   arrange(estimate)
+
+panderOptions('table.split.table', 300)
+pander(p_borough, round=3)
 
 #This shows that Manhattan has the highest increase in sale price for every increase in gross square feet. Bronx has the lowest
 
@@ -249,11 +259,14 @@ nyc_nest<-nyc_nest%>%
                        .f=glance))
 
 #we Unnest
-nyc_nest%>%
+r_borough<-nyc_nest%>%
   select(Borough, glance_coef)%>%
   unnest(cols = glance_coef)%>%
-  select(r.squared)%>%
+  select(r.squared, adj.r.squared, p.value, AIC, BIC)%>%
   arrange(r.squared)
+
+panderOptions('table.split.table', 300)
+pander(r_borough, round=3)
 
 #Brooklyn has the lowest R squared while Manhattan has the highest R Squared
 ```
